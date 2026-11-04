@@ -1,0 +1,11 @@
+{
+  "name": "relay-router",
+  "description": "Mains-powered relay output that also routes Thread traffic",
+  "board": "xiao-esp32c5",
+  "role": "router",
+  "vendor_id": "0xFFF1",
+  "product_id": "0x8000",
+  "endpoints": [
+    { "type": "on_off_plugin_unit", "pin": "D2", "active_low": false }
+  ]
+}

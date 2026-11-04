@@ -1,0 +1,25 @@
+# Build output
+build/
+build-*/
+dist/
+firmware/build/
+firmware/managed_components/
+firmware/dependencies.lock
+firmware/sdkconfig
+firmware/sdkconfig.old
+__pycache__/
+
+# Keys and per-device data must never enter this repository
+*.pem
+*.key
+*.der
+*.p12
+*.pfx
+secrets/
+factory-data/
+keys/
+
+# Editors
+.vscode/
+.idea/
+.DS_Store

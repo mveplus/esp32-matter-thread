@@ -1,0 +1,11 @@
+{
+  "name": "button-sleepy",
+  "description": "Battery-powered button that sleeps between presses",
+  "board": "xiao-esp32c5",
+  "role": "sleepy",
+  "vendor_id": "0xFFF1",
+  "product_id": "0x8001",
+  "endpoints": [
+    { "type": "generic_switch", "pin": "D1", "active_low": true }
+  ]
+}
