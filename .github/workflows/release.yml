@@ -19,8 +19,6 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    container:
-      image: espressif/esp-matter@sha256:aa77e97104c3b464d698ee0daac2feed0dcb6594a61ddaa7aae53c0292a61717
     strategy:
       fail-fast: true
       matrix:
@@ -31,30 +29,25 @@ jobs:
       PROFILE: ${{ matrix.profile }}
       SBOM_WHEEL: esp_idf_sbom-1.4.0-py3-none-any.whl
       SBOM_SHA256: 3fa24ff1c14fca159ed85ff32241e50a23f392c606b314cd13f5b5b758f4d45f
+      # Builds run through tools/in_container.sh, root in the container.
+      IN_CONTAINER_DOCKER_ARGS: "--user 0:0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force >/dev/null
+          df -h /
       - name: Build
         shell: bash
         run: |
-          source "$IDF_PATH/export.sh" >/dev/null
-          source "$ESP_MATTER_PATH/export.sh" >/dev/null
-          cd "$GITHUB_WORKSPACE"
           version="${GITHUB_REF_NAME#v}"
-          tools/build.sh "$PRODUCT" --profile "$PROFILE" --version "$version"
-      - name: Install the SBOM tool
-        shell: bash
-        run: |
-          source "$IDF_PATH/export.sh" >/dev/null
-          pip download --no-deps esp-idf-sbom==1.4.0 -d "$RUNNER_TEMP/sbom"
-          echo "$SBOM_SHA256  $RUNNER_TEMP/sbom/$SBOM_WHEEL" | sha256sum -c -
-          pip install "$RUNNER_TEMP/sbom/$SBOM_WHEEL"
+          tools/in_container.sh tools/build.sh "$PRODUCT" --profile "$PROFILE" --version "$version"
       - name: Package
         shell: bash
         run: |
-          source "$IDF_PATH/export.sh" >/dev/null
-          cd "$GITHUB_WORKSPACE"
           version="${GITHUB_REF_NAME#v}"
           b="build/$PRODUCT-$PROFILE"
           name="$PRODUCT-$version-$PROFILE"
@@ -71,7 +64,14 @@ jobs:
           cp "$b/sdkconfig" "$out/sdkconfig"
           # An unsigned production .ota would be refused by every secured board.
           if [ "$PROFILE" = dev ]; then cp "$b/matter_board-ota.bin" "$out/app.ota"; fi
-          esp-idf-sbom create "$b/project_description.json" -o "$out/sbom.spdx"
+          # The SBOM tool runs in the container, against the IDF it describes.
+          tools/in_container.sh bash -c '
+            set -euo pipefail
+            pip download --quiet --no-deps esp-idf-sbom==1.4.0 -d /tmp/sbom
+            echo "$1  /tmp/sbom/$2" | sha256sum -c -
+            pip install --quiet "/tmp/sbom/$2"
+            esp-idf-sbom create "$3/project_description.json" -o "$4/sbom.spdx"
+          ' -- "$SBOM_SHA256" "$SBOM_WHEEL" "$b" "$out"
           # Firmware embeds public PEM certificates, so check names and text files only.
           if find "$out" -name '*.pem' -o -name '*.key' | grep -q . ||
              grep -l 'PRIVATE KEY' "$out/sdkconfig"; then echo "key material in $out" >&2; exit 1; fi

@@ -71,8 +71,10 @@ cannot change the partition table.
 ## Build environment
 
 Everything builds in `espressif/esp-matter:release-v1.6.1_idf_v6.0.2`, pinned
-by digest in `tools/in_container.sh` and in both workflows.
-`tests/test_repo_policy.py` fails if the pins disagree.
+by digest in `tools/in_container.sh`. Both workflows build through that
+script, after freeing runner disk space (the image is large enough to fill a
+standard runner). `tests/test_repo_policy.py` fails if a workflow builds any
+other way.
 
 ```sh
 tools/in_container.sh tools/build.sh relay-router                 # dev

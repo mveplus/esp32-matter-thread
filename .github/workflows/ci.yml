@@ -1,7 +1,9 @@
 # Host tests, then a firmware compile of every product in both profiles.
 #
-# Actions are pinned to commit SHAs and the build container to a digest. The
-# digest must match tools/in_container.sh; tests/test_repo_policy.py checks it.
+# Actions are pinned to commit SHAs. Firmware builds run through
+# tools/in_container.sh, the one place the container digest is written.
+# The image is large, so the job frees runner disk space before pulling it;
+# without that, the pull can fail with "no space left on device".
 # The production profile is compiled with a throwaway signing key generated
 # inside the job and deleted when the job ends. It is a compile check only:
 # those images are not uploaded and must never be flashed.
@@ -44,8 +46,6 @@ jobs:
     needs: host-tests
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    container:
-      image: espressif/esp-matter@sha256:aa77e97104c3b464d698ee0daac2feed0dcb6594a61ddaa7aae53c0292a61717
     strategy:
       fail-fast: false
       matrix:
@@ -55,23 +55,26 @@ jobs:
     env:
       PRODUCT: ${{ matrix.product }}
       PROFILE: ${{ matrix.profile }}
+      # Root in the container, as a job-level container would run.
+      IN_CONTAINER_DOCKER_ARGS: "--user 0:0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force >/dev/null
+          df -h /
       - name: Build
         shell: bash
         run: |
-          source "$IDF_PATH/export.sh" >/dev/null
-          source "$ESP_MATTER_PATH/export.sh" >/dev/null
-          cd "$GITHUB_WORKSPACE"
           signing=()
           if [ "$PROFILE" = production ]; then signing=(--throwaway-key); fi
-          tools/build.sh "$PRODUCT" --profile "$PROFILE" "${signing[@]}"
+          tools/in_container.sh tools/build.sh "$PRODUCT" --profile "$PROFILE" "${signing[@]}"
       - name: Delete the throwaway key
         if: always()
-        shell: bash
-        run: rm -rf build/*/throwaway
+        run: sudo rm -rf build/*/throwaway
       - name: Collect binaries
         if: matrix.profile == 'dev'
         shell: bash

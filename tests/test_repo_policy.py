@@ -2,7 +2,8 @@
 
 These guard the rules that keep a public firmware repository safe to publish
 and keep CI reproducible:
-- the build container is pinned by digest, and the same digest everywhere
+- the build container is pinned by digest, and workflows build through
+  tools/in_container.sh, so the digest is the same everywhere
 - every GitHub Action is pinned to a full commit SHA
 - no key material or personal email address is committed
 - signing keys never come from GitHub, and CI never signs with a key it made
@@ -59,6 +60,15 @@ class ContainerPinTests(unittest.TestCase):
             refs = [m.group("ref") for m in IMAGE_RE.finditer(workflow.read_text())]
             for ref in refs:
                 self.assertEqual(ref, expected, f"{workflow.name} uses espressif/esp-matter{ref}")
+
+    def test_workflows_build_through_the_pinned_wrapper(self):
+        # Firmware builds must run in the pinned image, via tools/in_container.sh.
+        for workflow in WORKFLOWS:
+            text = workflow.read_text()
+            for line in text.splitlines():
+                if "tools/build.sh" in line and not line.lstrip().startswith("#"):
+                    self.assertIn("tools/in_container.sh", line, f"{workflow.name}: {line.strip()}")
+            self.assertNotRegex(text, r"(?m)^\s*container:", f"{workflow.name} uses a job container")
 
 
 class ActionPinTests(unittest.TestCase):
