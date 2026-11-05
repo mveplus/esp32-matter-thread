@@ -42,7 +42,7 @@ esac
 manifest="$root/products/$product.json"
 [ -f "$manifest" ] || fail "no such product: $manifest"
 python3 "$root/tools/gen_product.py" --check "$manifest"
-version_number="$(python3 "$root/tools/gen_product.py" --version-number "$version")"
+version_number="$(python3 "$root/tools/gen_product.py" --version-number "$version" "$manifest")"
 read -r vendor_id product_id < <(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); print(m["vendor_id"], m["product_id"])' "$manifest")
 
 for part in app bootloader; do
