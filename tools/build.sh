@@ -83,4 +83,6 @@ idf.py -C "$root/firmware" -B "$build_dir" \
     -D FW_VERSION_NUMBER="$version_number" \
     build
 
+IFS=';' read -r -a fragment_files <<< "$fragments"
+python3 "$root/tools/check_config.py" "$build_dir/sdkconfig" "${fragment_files[@]}"
 python3 "$root/tools/check_size.py" "$build_dir"

@@ -7,20 +7,19 @@
 CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_8mb.csv"
-CONFIG_PARTITION_TABLE_OFFSET=0xC000
+# 0x10000, not 0xC000: the production bootloader (Secure Boot v2, flash
+# encryption, anti-rollback) is 0xB000 signed and must end below the table.
+CONFIG_PARTITION_TABLE_OFFSET=0x10000
 
 # OTA redundancy: new images boot in pending-verify until ota_health.cpp decides
 CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
 CONFIG_ENABLE_OTA_REQUESTOR=y
 CONFIG_CHIP_OTA_IMAGE_BUILD=y
 
-# A hang resets the chip, which the bootloader treats as a failed new image
+# A hang resets the chip, which the bootloader treats as a failed new image.
+# Panics print and reboot (the IDF default); production reboots silently.
 CONFIG_ESP_TASK_WDT_EN=y
 CONFIG_ESP_TASK_WDT_PANIC=y
-CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y
-
-# libsodium
-CONFIG_LIBSODIUM_USE_MBEDTLS_SHA=y
 
 # NimBLE, used for commissioning
 CONFIG_BT_ENABLED=y
@@ -48,7 +47,6 @@ CONFIG_ENABLE_EXTENDED_DISCOVERY=y
 
 # Thread only: the C5's Wi-Fi stays off
 CONFIG_ENABLE_WIFI_STATION=n
-CONFIG_ENABLE_WIFI_AP=n
 
 # Buttons
 CONFIG_BUTTON_PERIOD_TIME_MS=20

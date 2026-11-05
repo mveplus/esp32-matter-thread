@@ -100,12 +100,13 @@ static const unsigned kProductEndpointCount = sizeof(kProductEndpoints) / sizeof
 
 
 def render_sdkconfig(manifest):
+    """The Matter product name is not a Kconfig option on ESP32: it comes from
+    the factory data partition, so it is not set here."""
     target = BOARDS[manifest["board"]]["target"]
     return (
         f'CONFIG_IDF_TARGET="{target}"\n'
         f"CONFIG_DEVICE_VENDOR_ID={manifest['vendor_id']}\n"
         f"CONFIG_DEVICE_PRODUCT_ID={manifest['product_id']}\n"
-        f'CONFIG_DEVICE_PRODUCT_NAME="{manifest["name"]}"\n'
     )
 
 

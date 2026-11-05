@@ -84,7 +84,9 @@ jobs:
           cp "$b/partition_table/partition-table.bin" "$out/partition-table.bin"
           cp "$b/sdkconfig" "$out/sdkconfig"
           if [ -f "$b/matter_board-ota.bin" ]; then cp "$b/matter_board-ota.bin" "$out/app.ota"; fi
-          if grep -rl -- '-----BEGIN' "$out"; then echo "key material in $out" >&2; exit 1; fi
+          # Firmware embeds public PEM certificates, so check names and text files only.
+          if find "$out" -name '*.pem' -o -name '*.key' | grep -q . ||
+             grep -l 'PRIVATE KEY' "$out/sdkconfig"; then echo "key material in $out" >&2; exit 1; fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: matrix.profile == 'dev'
         with:

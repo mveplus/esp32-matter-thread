@@ -24,5 +24,5 @@ CONFIG_BT_LE_SLEEP_ENABLE=y
 CONFIG_BT_LE_LP_CLK_SRC_MAIN_XTAL=y
 CONFIG_RTC_CLK_SRC_EXT_CRYS=n
 
-# Wake on the button
-CONFIG_GPIO_BUTTON_SUPPORT_POWER_SAVE=y
+# Wake on the button: espressif/button v4 has no Kconfig for this. drivers.cpp
+# sets enable_power_save on the GPIO button whenever CONFIG_PM_ENABLE is on.
