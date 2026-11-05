@@ -61,6 +61,9 @@ python3 "$ota_tool" create -v "$vendor_id" -p "$product_id" -vn "$version_number
     "$out_dir/app.bin" "$out_dir/app.ota"
 
 (cd "$out_dir" && sha256sum app.bin bootloader.bin app.ota > SHA256SUMS)
-echo "Signed $product $version. Public key digest:"
-espsecure digest-sbv2-public-key --keyfile "$key" --output /dev/stdout 2>/dev/null | od -An -tx1 | tr -d ' \n' || true
+digest="$(mktemp)"
+espsecure digest-sbv2-public-key --keyfile "$key" --output "$digest" >/dev/null
+echo "Signed $product $version. Public key digest (compare with the board's eFuse):"
+od -An -tx1 "$digest" | tr -d ' \n'
 echo
+rm -f "$digest"
