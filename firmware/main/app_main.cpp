@@ -1,6 +1,6 @@
 /*
  * Universal board firmware. The product manifest decides which endpoints exist;
- * see products/*.json and tools/gen_product.py.
+ * see the JSON files in products/ and tools/gen_product.py.
  */
 #include <esp_err.h>
 #include <esp_log.h>
@@ -98,8 +98,8 @@ static esp_err_t create_relay(node_t *node, const product_endpoint_t *product)
     if (driver == nullptr) {
         return ESP_FAIL;
     }
-    on_off_plugin_unit::config_t config;
-    endpoint_t *endpoint = on_off_plugin_unit::create(node, &config, ENDPOINT_FLAG_NONE, driver);
+    on_off_plug_in_unit::config_t config;
+    endpoint_t *endpoint = on_off_plug_in_unit::create(node, &config, ENDPOINT_FLAG_NONE, driver);
     if (endpoint == nullptr) {
         return ESP_FAIL;
     }

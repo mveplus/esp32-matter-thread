@@ -60,7 +60,7 @@ if [ "$profile" = production ]; then
     if $throwaway_key; then
         signing_key="$build_dir/throwaway/secure_boot_signing_key.pem"
         mkdir -p "$(dirname "$signing_key")"
-        [ -f "$signing_key" ] || espsecure.py generate_signing_key --version 2 --scheme rsa3072 "$signing_key"
+        [ -f "$signing_key" ] || espsecure generate-signing-key --version 2 --scheme rsa3072 "$signing_key"
     fi
     if [ -n "$signing_key" ]; then
         printf 'CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=y\nCONFIG_SECURE_BOOT_SIGNING_KEY="%s"\n' \

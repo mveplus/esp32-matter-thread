@@ -1,0 +1,93 @@
+# Host tests, then a firmware compile of every product in both profiles.
+#
+# Actions are pinned to commit SHAs and the build container to a digest. The
+# digest must match tools/in_container.sh; tests/test_repo_policy.py checks it.
+# The production profile is compiled with a throwaway signing key generated
+# inside the job and deleted when the job ends. It is a compile check only:
+# those images are not uploaded and must never be flashed.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Python tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Health policy tests
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -Ifirmware/main \
+            tests/test_health_policy.c firmware/main/health_policy.c -o "$RUNNER_TEMP/thp"
+          "$RUNNER_TEMP/thp"
+      - name: Validate product manifests
+        run: for manifest in products/*.json; do python3 tools/gen_product.py --check "$manifest"; done
+      - name: Shell syntax
+        run: for script in tools/*.sh; do bash -n "$script"; done
+
+  firmware:
+    needs: host-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: espressif/esp-matter@sha256:aa77e97104c3b464d698ee0daac2feed0dcb6594a61ddaa7aae53c0292a61717
+    strategy:
+      fail-fast: false
+      matrix:
+        product: [relay-router, button-sleepy]
+        profile: [dev, production]
+    name: firmware (${{ matrix.product }}, ${{ matrix.profile }})
+    env:
+      PRODUCT: ${{ matrix.product }}
+      PROFILE: ${{ matrix.profile }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build
+        shell: bash
+        run: |
+          source "$IDF_PATH/export.sh" >/dev/null
+          source "$ESP_MATTER_PATH/export.sh" >/dev/null
+          cd "$GITHUB_WORKSPACE"
+          signing=()
+          if [ "$PROFILE" = production ]; then signing=(--throwaway-key); fi
+          tools/build.sh "$PRODUCT" --profile "$PROFILE" "${signing[@]}"
+      - name: Delete the throwaway key
+        if: always()
+        shell: bash
+        run: rm -rf build/*/throwaway
+      - name: Collect binaries
+        if: matrix.profile == 'dev'
+        shell: bash
+        run: |
+          out="dist/$PRODUCT-$PROFILE"
+          mkdir -p "$out"
+          b="build/$PRODUCT-$PROFILE"
+          cp "$b/matter_board.bin" "$out/app.bin"
+          cp "$b/bootloader/bootloader.bin" "$out/bootloader.bin"
+          cp "$b/partition_table/partition-table.bin" "$out/partition-table.bin"
+          cp "$b/sdkconfig" "$out/sdkconfig"
+          if [ -f "$b/matter_board-ota.bin" ]; then cp "$b/matter_board-ota.bin" "$out/app.ota"; fi
+          if grep -rl -- '-----BEGIN' "$out"; then echo "key material in $out" >&2; exit 1; fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: matrix.profile == 'dev'
+        with:
+          name: ${{ matrix.product }}-${{ matrix.profile }}-compile-check
+          path: dist/
+          retention-days: 7
