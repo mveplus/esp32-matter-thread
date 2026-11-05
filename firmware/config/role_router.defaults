@@ -1,0 +1,2 @@
+# Mains-powered Thread router (FTD). Always on, routes for other devices.
+CONFIG_OPENTHREAD_FTD=y

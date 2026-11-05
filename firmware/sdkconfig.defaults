@@ -1,0 +1,60 @@
+# Base configuration for every product. Started from esp-matter
+# examples/light/sdkconfig.defaults.c5_thread (release/v1.6.1). tools/build.sh
+# layers config/role_*.defaults, the generated product fragment and, for
+# production builds, config/security_production.defaults on top of this file.
+
+# Flash: the XIAO ESP32-C5 has 8 MB
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_8mb.csv"
+CONFIG_PARTITION_TABLE_OFFSET=0xC000
+
+# OTA redundancy: new images boot in pending-verify until ota_health.cpp decides
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+CONFIG_ENABLE_OTA_REQUESTOR=y
+CONFIG_CHIP_OTA_IMAGE_BUILD=y
+
+# A hang resets the chip, which the bootloader treats as a failed new image
+CONFIG_ESP_TASK_WDT_EN=y
+CONFIG_ESP_TASK_WDT_PANIC=y
+CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y
+
+# libsodium
+CONFIG_LIBSODIUM_USE_MBEDTLS_SHA=y
+
+# NimBLE, used for commissioning
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_EXT_ADV=n
+CONFIG_BT_NIMBLE_HCI_EVT_BUF_SIZE=70
+CONFIG_USE_BLE_ONLY_FOR_COMMISSIONING=n
+
+# OpenThread
+CONFIG_OPENTHREAD_ENABLED=y
+CONFIG_OPENTHREAD_SRP_CLIENT=y
+CONFIG_OPENTHREAD_DNS_CLIENT=y
+CONFIG_OPENTHREAD_LOG_LEVEL_DYNAMIC=n
+CONFIG_OPENTHREAD_LOG_LEVEL_NOTE=y
+CONFIG_OPENTHREAD_CLI=n
+
+# lwIP for OpenThread
+CONFIG_LWIP_IPV6_AUTOCONFIG=n
+CONFIG_LWIP_IPV6_NUM_ADDRESSES=8
+CONFIG_LWIP_MULTICAST_PING=y
+
+# mDNS goes through the Thread border router
+CONFIG_USE_MINIMAL_MDNS=n
+CONFIG_ENABLE_EXTENDED_DISCOVERY=y
+
+# Thread only: the C5's Wi-Fi stays off
+CONFIG_ENABLE_WIFI_STATION=n
+CONFIG_ENABLE_WIFI_AP=n
+
+# Buttons
+CONFIG_BUTTON_PERIOD_TIME_MS=20
+CONFIG_BUTTON_LONG_PRESS_TIME_MS=5000
+
+# Reserve the recovery bootloader region. This has no effect until the eFuse is
+# burned, which is a production step: see docs/security.md.
+CONFIG_BOOTLOADER_RECOVERY_ENABLE=y
+CONFIG_BOOTLOADER_RECOVERY_OFFSET=0x660000

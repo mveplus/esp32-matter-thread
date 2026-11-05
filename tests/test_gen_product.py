@@ -2,6 +2,9 @@
 import copy
 import importlib.util
 import json
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -54,6 +57,35 @@ class ValidateTests(unittest.TestCase):
         manifest = changed()
         del manifest["board"]
         self.rejected(manifest, "missing required field 'board'")
+
+
+class VersionTests(unittest.TestCase):
+    def test_later_versions_get_higher_numbers(self):
+        versions = ["0.0.1", "0.0.2", "0.1.0", "0.999.999", "1.0.0", "1.2.3-rc1"]
+        numbers = [gen.version_number(version) for version in versions]
+        self.assertEqual(numbers, sorted(numbers))
+        self.assertEqual(len(set(numbers)), len(numbers))
+
+    def test_unusable_version_rejected(self):
+        for version in ("1.2", "v1.2.3", "1.1000.0", ""):
+            with self.assertRaises(gen.ManifestError):
+                gen.version_number(version)
+
+
+class GeneratedHeaderTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("cc"), "no C compiler")
+    def test_header_compiles_against_product_h(self):
+        for path in (ROOT / "products").glob("*.json"):
+            with tempfile.TemporaryDirectory() as out:
+                out = Path(out)
+                (out / "product_config.h").write_text(gen.render_header(json.loads(path.read_text())))
+                (out / "check.c").write_text('#include "product_config.h"\nint main(void) { return kProductEndpointCount == 0; }\n')
+                subprocess.run(
+                    ["cc", "-std=c11", "-Wall", "-Werror", f"-I{ROOT / 'firmware' / 'main'}", f"-I{out}",
+                     str(out / "check.c"), "-o", str(out / "check")],
+                    check=True,
+                )
+                subprocess.run([str(out / "check")], check=True)
 
 
 if __name__ == "__main__":
