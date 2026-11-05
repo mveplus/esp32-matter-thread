@@ -1,0 +1,39 @@
+# Production security profile. Booting this burns eFuses, which is irreversible.
+# Use sacrificial boards only until docs/hardware-bring-up.md is complete.
+
+# Secure Boot v2. RSA-3072, because ESP-IDF 6.0.2 marks ECDSA Secure Boot as not
+# functional on the ESP32-C5 (SECURE_BOOT_V2_ECDSA_INSECURE). RSA needs chip
+# revision 1.0 or later, which is the IDF default minimum.
+CONFIG_SECURE_BOOT=y
+CONFIG_SECURE_BOOT_V2_ENABLED=y
+CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y
+
+# Flash encryption in release mode
+CONFIG_SECURE_FLASH_ENC_ENABLED=y
+CONFIG_SECURE_FLASH_ENCRYPTION_MODE_RELEASE=y
+CONFIG_SECURE_ENABLE_SECURE_ROM_DL_MODE=y
+
+# NVS encryption, with keys in the encrypted nvs_keys partition
+CONFIG_NVS_ENCRYPTION=y
+CONFIG_NVS_SEC_KEY_PROTECT_USING_FLASH_ENC=y
+
+# Anti-rollback. The C5 eFuse field allows only 9 increases, ever, so raise
+# BOOTLOADER_APP_SECURE_VERSION only to retire a vulnerable release.
+CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK=y
+CONFIG_BOOTLOADER_APP_SECURE_VERSION=0
+CONFIG_BOOTLOADER_APP_SEC_VER_SIZE_EFUSE_FIELD=9
+
+# Device identity comes from the esp_secure_cert partition, written at the
+# factory. No test credentials are compiled in.
+CONFIG_ENABLE_ESP32_FACTORY_DATA_PROVIDER=y
+CONFIG_ENABLE_ESP32_DEVICE_INSTANCE_INFO_PROVIDER=y
+CONFIG_SEC_CERT_DAC_PROVIDER=y
+CONFIG_SEC_CERT_COMMISSIONABLE_DATA_PROVIDER=y
+CONFIG_SEC_CERT_DEVICE_INSTANCE_INFO_PROVIDER=y
+CONFIG_NONE_DEVICE_INFO_PROVIDER=y
+
+# No debug surface
+CONFIG_ENABLE_CHIP_SHELL=n
+CONFIG_ESP_SYSTEM_PANIC_SILENT_REBOOT=y
+CONFIG_BOOTLOADER_LOG_LEVEL_WARN=y
+CONFIG_LOG_DEFAULT_LEVEL_WARN=y

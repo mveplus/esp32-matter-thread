@@ -1,0 +1,16 @@
+# Flash layout for the 8 MB XIAO ESP32-C5. Offsets are explicit so a build can
+# never silently move a partition: changing this table cannot be delivered by
+# OTA. The bootloader sits at 0x2000 (C5 ROM) and the table at 0x10000, which
+# leaves 0xE000 for the bootloader. The production bootloader is 0xB000 signed.
+# Name,          Type,       SubType,  Offset,   Size,     Flags
+esp_secure_cert, 0x3F,       ,         0x11000,  0x2000,   encrypted
+nvs,             data,       nvs,      0x13000,  0x30000,
+nvs_keys,        data,       nvs_keys, 0x43000,  0x1000,   encrypted
+otadata,         data,       ota,      0x44000,  0x2000,
+phy_init,        data,       phy,      0x46000,  0x1000,
+ota_0,           app,        ota_0,    0x50000,  0x300000,
+ota_1,           app,        ota_1,    0x350000, 0x300000,
+fctry,           data,       nvs,      0x650000, 0x6000,
+# Reserved only. Offset comes from CONFIG_BOOTLOADER_RECOVERY_OFFSET, the size
+# from the primary bootloader's region. Nothing writes this region yet.
+recovery_boot,   bootloader, recovery, N/A,      N/A,

@@ -1,0 +1,98 @@
+# Host tests, then a firmware compile of every product in both profiles.
+#
+# Actions are pinned to commit SHAs. Firmware builds run through
+# tools/in_container.sh, the one place the container digest is written.
+# The image is large, so the job frees runner disk space before pulling it;
+# without that, the pull can fail with "no space left on device".
+# The production profile is compiled with a throwaway signing key generated
+# inside the job and deleted when the job ends. It is a compile check only:
+# those images are not uploaded and must never be flashed.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Python tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Health policy tests
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -Ifirmware/main \
+            tests/test_health_policy.c firmware/main/health_policy.c -o "$RUNNER_TEMP/thp"
+          "$RUNNER_TEMP/thp"
+      - name: Validate product manifests
+        run: for manifest in products/*.json; do python3 tools/gen_product.py --check "$manifest"; done
+      - name: Shell syntax
+        run: for script in tools/*.sh; do bash -n "$script"; done
+
+  firmware:
+    needs: host-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        product: [relay-router, button-sleepy]
+        profile: [dev, production]
+    name: firmware (${{ matrix.product }}, ${{ matrix.profile }})
+    env:
+      PRODUCT: ${{ matrix.product }}
+      PROFILE: ${{ matrix.profile }}
+      # Root in the container, as a job-level container would run.
+      IN_CONTAINER_DOCKER_ARGS: "--user 0:0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force >/dev/null
+          df -h /
+      - name: Build
+        shell: bash
+        run: |
+          signing=()
+          if [ "$PROFILE" = production ]; then signing=(--throwaway-key); fi
+          tools/in_container.sh tools/build.sh "$PRODUCT" --profile "$PROFILE" "${signing[@]}"
+      - name: Delete the throwaway key
+        if: always()
+        run: sudo rm -rf build/*/throwaway
+      - name: Collect binaries
+        if: matrix.profile == 'dev'
+        shell: bash
+        run: |
+          out="dist/$PRODUCT-$PROFILE"
+          mkdir -p "$out"
+          b="build/$PRODUCT-$PROFILE"
+          cp "$b/matter_board.bin" "$out/app.bin"
+          cp "$b/bootloader/bootloader.bin" "$out/bootloader.bin"
+          cp "$b/partition_table/partition-table.bin" "$out/partition-table.bin"
+          cp "$b/sdkconfig" "$out/sdkconfig"
+          if [ -f "$b/matter_board-ota.bin" ]; then cp "$b/matter_board-ota.bin" "$out/app.ota"; fi
+          # Firmware embeds public PEM certificates, so check names and text files only.
+          if find "$out" -name '*.pem' -o -name '*.key' | grep -q . ||
+             grep -l 'PRIVATE KEY' "$out/sdkconfig"; then echo "key material in $out" >&2; exit 1; fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: matrix.profile == 'dev'
+        with:
+          name: ${{ matrix.product }}-${{ matrix.profile }}-compile-check
+          path: dist/
+          retention-days: 7

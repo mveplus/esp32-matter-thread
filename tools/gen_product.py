@@ -8,6 +8,7 @@ With --check, validates only and writes nothing.
 """
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -99,13 +100,23 @@ static const unsigned kProductEndpointCount = sizeof(kProductEndpoints) / sizeof
 
 
 def render_sdkconfig(manifest):
+    """The Matter product name is not a Kconfig option on ESP32: it comes from
+    the factory data partition, so it is not set here."""
     target = BOARDS[manifest["board"]]["target"]
     return (
         f'CONFIG_IDF_TARGET="{target}"\n'
         f"CONFIG_DEVICE_VENDOR_ID={manifest['vendor_id']}\n"
         f"CONFIG_DEVICE_PRODUCT_ID={manifest['product_id']}\n"
-        f'CONFIG_DEVICE_PRODUCT_NAME="{manifest["name"]}"\n'
     )
+
+
+def version_number(version):
+    """Maps 1.2.3 to the Matter software version. OTA only accepts a higher number."""
+    match = re.fullmatch(r"(\d+)\.(\d{1,3})\.(\d{1,3})(-[0-9A-Za-z.-]+)?", version)
+    if match is None:
+        raise ManifestError(f"version '{version}' is not MAJOR.MINOR.PATCH with MINOR and PATCH under 1000")
+    major, minor, patch = (int(part) for part in match.groups()[:3])
+    return major * 1_000_000 + minor * 1_000 + patch
 
 
 def main():
@@ -114,7 +125,15 @@ def main():
     parser.add_argument("output", type=Path, nargs="?")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--print-role", action="store_true")
+    parser.add_argument("--version-number", metavar="VERSION", help="print the Matter software version for VERSION")
     args = parser.parse_args()
+
+    if args.version_number:
+        try:
+            print(version_number(args.version_number))
+        except ManifestError as error:
+            sys.exit(str(error))
+        return
 
     manifest = json.loads(args.manifest.read_text())
     try:

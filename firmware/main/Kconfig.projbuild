@@ -1,0 +1,21 @@
+menu "Board firmware"
+
+    config APP_HEALTH_STABLE_S
+        int "Seconds of stable connection before new firmware is confirmed"
+        default 120
+        range 10 3600
+
+    config APP_HEALTH_DEADLINE_S
+        int "Seconds after boot before unconfirmed firmware rolls back"
+        default 900
+        range 60 86400
+
+    config APP_OTA_TEST_NEVER_CONFIRM
+        bool "TEST ONLY: never confirm this image, to force a rollback"
+        default n
+        help
+            Builds an image that fails its health check on purpose, for the
+            forced rollback step in docs/hardware-bring-up.md. The build fails
+            if this is set together with secure boot.
+
+endmenu
